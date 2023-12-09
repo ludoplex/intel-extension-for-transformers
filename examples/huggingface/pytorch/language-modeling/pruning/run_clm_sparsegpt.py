@@ -229,13 +229,13 @@ def parse_args():
             "If passed, LLM loading time and RAM consumption will be benefited."
         ),
     )
-    
+
     ### DDP mode config
     parser.add_argument(
         "--local_rank",
         type=int, default=-1,
         help="Automatic DDP Multi-GPU argument, do not modify")
-    
+
     # pruning config
     parser.add_argument(
         "--do_prune", action="store_true",
@@ -263,7 +263,7 @@ def parse_args():
     parser.add_argument(
         "--trust_remote_code", default=True,
         help="Transformers parameter: use the external repo")
-    
+
     # Evaluation config
     parser.add_argument("--tasks", default=["lambada_openai"],
         help="Usually chosen with ['lambada_openai','hellaswag','winogrande','piqa']",
@@ -272,19 +272,17 @@ def parse_args():
         help=" fp16")
     parser.add_argument("--use_accelerate", action='store_true',
         help="Usually use to accelerate evaluation for large models")
-    
+
     args = parser.parse_args()
-        
-    # Sanity checks
+
     if args.calibration_dataset_name is None and args.train_file is None and args.validation_file is None:
         raise ValueError("Need either a dataset name or a training/validation file.")
-    else:
-        if args.train_file is not None:
-            extension = args.train_file.split(".")[-1]
-            assert extension in ["csv", "json", "txt"], "`train_file` should be a csv, json or txt file."
-        if args.validation_file is not None:
-            extension = args.validation_file.split(".")[-1]
-            assert extension in ["csv", "json", "txt"], "`validation_file` should be a csv, json or txt file."
+    if args.train_file is not None:
+        extension = args.train_file.split(".")[-1]
+        assert extension in ["csv", "json", "txt"], "`train_file` should be a csv, json or txt file."
+    if args.validation_file is not None:
+        extension = args.validation_file.split(".")[-1]
+        assert extension in ["csv", "json", "txt"], "`validation_file` should be a csv, json or txt file."
 
     if args.push_to_hub:
         assert args.output_dir is not None, "Need an `output_dir` to create a repo when `--push_to_hub` is passed."

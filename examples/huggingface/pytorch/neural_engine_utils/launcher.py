@@ -128,25 +128,19 @@ class Configs:
 
 def get_tmp_log_path(config, input_path, instanc_index):
     """get path of tmp log."""
-    return "{}/{}_{}_{}_{}_{}_{}_{}.log".format(input_path, config.get_batch(), \
-           config.get_instance(), config.get_cores_per_instance(), instanc_index, \
-           config.get_weight_sharing(), config.get_memory_allocator(), config.get_memory_planning())
+    return f"{input_path}/{config.get_batch()}_{config.get_instance()}_{config.get_cores_per_instance()}_{instanc_index}_{config.get_weight_sharing()}_{config.get_memory_allocator()}_{config.get_memory_planning()}.log"
 
 def get_formal_log_path(name, input_path):
     """get path of output."""
-    return "{}/{}".format(input_path, name)
+    return f"{input_path}/{name}"
 
 def get_min_latency_output_log_path(config, input_path):
     """get path of min_latency."""
-    return "{}/min_latency_batch_{}_instance_{}_cores_{}_{}_{}_{}.log".format(input_path, \
-           config.get_batch(), config.get_instance(), config.get_cores_per_instance(), \
-           config.get_weight_sharing(), config.get_memory_allocator(), config.get_memory_planning())
+    return f"{input_path}/min_latency_batch_{config.get_batch()}_instance_{config.get_instance()}_cores_{config.get_cores_per_instance()}_{config.get_weight_sharing()}_{config.get_memory_allocator()}_{config.get_memory_planning()}.log"
 
 def get_output_log_path(args, config, input_path):
     """get path of other modes."""
-    return "{}/{}_batch_{}_instance_{}_cores_{}_{}_{}_{}.log".format(input_path, args.mode, \
-           config.get_batch(), config.get_instance(), config.get_cores_per_instance(), \
-           config.get_weight_sharing(), config.get_memory_allocator(), config.get_memory_planning())
+    return f"{input_path}/{args.mode}_batch_{config.get_batch()}_instance_{config.get_instance()}_cores_{config.get_cores_per_instance()}_{config.get_weight_sharing()}_{config.get_memory_allocator()}_{config.get_memory_planning()}.log"
 
 def latency_mode_grab_log(input_path, output, config, is_best_write, first_write, latency_constraint):
     """
@@ -164,15 +158,15 @@ def latency_mode_grab_log(input_path, output, config, is_best_write, first_write
     i = 0
     while i < config.get_instance():
         log_path = get_tmp_log_path(config, input_path, i)
-        latency_path = get_tmp_log_path(config, input_path + "/all_latency", i)
+        latency_path = get_tmp_log_path(config, f"{input_path}/all_latency", i)
         latency_path = latency_path.replace('.log', '.npy')
         instance_all_latency = np.load(latency_path)
         all_latency.append(instance_all_latency)
         i += 1
-        
+
         try:
             with open(log_path, 'r', errors='ignore') as src_fp:
-                for line in src_fp.readlines():
+                for line in src_fp:
                     if line.find("Throughput:") >= 0:
                         throughput_str = line
                     elif line.find("Average Latency:") >= 0:
@@ -195,8 +189,6 @@ def latency_mode_grab_log(input_path, output, config, is_best_write, first_write
     p90_latency = (np.percentile(all_latency, 90) / batch_size) * 1000
     p99_latency = (np.percentile(all_latency, 99) / batch_size) * 1000
 
-    write_mode = 'a'
-
     write_data = False
     if latency_constraint != 0 and latency_constraint > avg_latency:
         write_data = True
@@ -204,21 +196,23 @@ def latency_mode_grab_log(input_path, output, config, is_best_write, first_write
         write_data = True
 
     if write_data:
+        write_mode = 'a'
+
         try:
             with open(output, write_mode) as dst_fp:
                 if '.csv' in output:
                     fields = ['batch', 'instance', 'cores per instance', 'Troughput',
                               'Average Latency', 'P50 Latency', 'P90 Latency', 'P99 Latency', 'cmd']
 
-                    fields_blank = ['', '', '', '', '', '', '', '', '']
-                    fields_best = ['best', '', '', '', '', '', '', '', '']
-                                 
                     csvwriter = csv.writer(dst_fp)
                     if first_write == True:
                         csvwriter.writerow(fields)
                     if is_best_write == True:
+                        fields_blank = ['', '', '', '', '', '', '', '', '']
                         csvwriter.writerow(fields_blank)
                         csvwriter.writerow(fields_blank)
+                        fields_best = ['best', '', '', '', '', '', '', '', '']
+
                         csvwriter.writerow(fields_best)
                         csvwriter.writerow(fields)
                     row = [[config.get_batch(), config.get_instance(),
@@ -226,51 +220,48 @@ def latency_mode_grab_log(input_path, output, config, is_best_write, first_write
                             p50_latency, p90_latency, p99_latency, config.get_cmds()]]
                     csvwriter.writerows(row)
                 else:
-                    dst_fp.write("cmd: {}\n".format(config.get_cmds()))
+                    dst_fp.write(f"cmd: {config.get_cmds()}\n")
                     dst_fp.write("**************************************\n")
-                    dst_fp.write("batch: {}\n".format(config.get_batch()))
-                    dst_fp.write("instance: {}, cores per instance: {}\n".
-                                 format(config.get_instance(), config.get_cores_per_instance()))
+                    dst_fp.write(f"batch: {config.get_batch()}\n")
+                    dst_fp.write(
+                        f"instance: {config.get_instance()}, cores per instance: {config.get_cores_per_instance()}\n"
+                    )
                     dst_fp.write("--------------------------------------\n")
-                    dst_fp.write("Troughput: {} images/sec\n".format(throughput))
-                    dst_fp.write("Average Latency: {} ms\n".format(avg_latency))
-                    dst_fp.write("P50 Latency: {} ms\n".format(p50_latency))
-                    dst_fp.write("P90 Latency: {} ms\n".format(p90_latency))
-                    dst_fp.write("P99 Latency: {} ms\n".format(p99_latency))
+                    dst_fp.write(f"Troughput: {throughput} images/sec\n")
+                    dst_fp.write(f"Average Latency: {avg_latency} ms\n")
+                    dst_fp.write(f"P50 Latency: {p50_latency} ms\n")
+                    dst_fp.write(f"P90 Latency: {p90_latency} ms\n")
+                    dst_fp.write(f"P99 Latency: {p99_latency} ms\n")
                     dst_fp.write("--------------------------------------\n")
         except OSError as ex:
             print(ex)
             dst_fp.close()
         finally:
             dst_fp.close()
-            if config.get_mode() == "default_throughput" or config.get_mode() == "max_throughput":
+            if config.get_mode() in ["default_throughput", "max_throughput"]:
                 return throughput
             return avg_latency
     else:
-        if config.get_mode() == "default_throughput" or config.get_mode() == "max_throughput":
+        if config.get_mode() in ["default_throughput", "max_throughput"]:
             return throughput
         return avg_latency
 
 
 def replace_instance_num(cmd_str, instance):
     """set instance numbers"""
-    return cmd_str.replace("INST_NUM=", "INST_NUM="+str(instance))
+    return cmd_str.replace("INST_NUM=", f"INST_NUM={str(instance)}")
 
 def get_cmd_prefix(core_list):
     """get memory prefix of cmd"""
-    return 'OMP_NUM_THREADS={} numactl --localalloc --physcpubind={} '. \
-            format(len(core_list), ','.join(core_list.astype(str)))
+    return f"OMP_NUM_THREADS={len(core_list)} numactl --localalloc --physcpubind={','.join(core_list.astype(str))} "
 
 def get_cmd_prefix2(core_list):
     """get memory prefix of cmd"""
-    return 'numactl --localalloc --physcpubind={}'. \
-            format(','.join(core_list.astype(str)))
+    return f"numactl --localalloc --physcpubind={','.join(core_list.astype(str))}"
 
 def get_weight_sharing(cmd_str):
     """get weight sharing """
-    if cmd_str.find("WEIGHT_SHARING=") >= 0:
-        return "enabled"
-    return "disabled"
+    return "enabled" if cmd_str.find("WEIGHT_SHARING=") >= 0 else "disabled"
 
 def get_memory_planning(cmd_str):
     """get memory planning."""
@@ -280,18 +271,18 @@ def get_memory_planning(cmd_str):
 
 def get_memory_allocator(cmd_str):
     """get memory allocator."""
-    if cmd_str.find("jemalloc") >= 0:
-        return "jemalloc"
-    return "default"
+    return "jemalloc" if cmd_str.find("jemalloc") >= 0 else "default"
 
 def add_weight_sharing_flag(prefix_list, weight_sharing):
     """set weight sharing flag."""
-    if weight_sharing == "enabled":
-        prefix_list[:] = [prefix+ " WEIGHT_SHARING=1 " for prefix in prefix_list]
+    if (
+        weight_sharing == "enabled"
+        or weight_sharing != "disabled"
+        and weight_sharing == "auto"
+    ):
+        prefix_list[:] = [f"{prefix} WEIGHT_SHARING=1 " for prefix in prefix_list]
     elif weight_sharing == "disabled":
         print("weight sharing disabled")
-    elif weight_sharing == "auto":
-        prefix_list[:] = [prefix+ " WEIGHT_SHARING=1 " for prefix in prefix_list]
     else:
         print("weight sharing incorrect")
     return prefix_list
@@ -301,10 +292,10 @@ def add_memory_planning_flag(prefix_list, memory_planning):
     if memory_planning == "cycle_buffer":
         print("cycle buffer")
     elif memory_planning == "unified_buffer":
-        prefix_list[:] = [prefix+ " UNIFIED_BUFFER=1 " for prefix in prefix_list]
+        prefix_list[:] = [f"{prefix} UNIFIED_BUFFER=1 " for prefix in prefix_list]
         print("unified_buffer")
     elif memory_planning == "auto":
-        prefix_list += [prefix+ " UNIFIED_BUFFER=1 " for prefix in prefix_list]
+        prefix_list += [f"{prefix} UNIFIED_BUFFER=1 " for prefix in prefix_list]
         print("auto memory planning")
     else:
         print("memory incorrect incorrect")
@@ -312,22 +303,20 @@ def add_memory_planning_flag(prefix_list, memory_planning):
 
 def add_instance_num_flag(prefix_list):
     """set instance num."""
-    prefix_list[:] = [prefix+ " INST_NUM= " for prefix in prefix_list]
+    prefix_list[:] = [f"{prefix} INST_NUM= " for prefix in prefix_list]
     return prefix_list
 
 def get_memory_settings(path, args):
     """append memory setting."""
     memory_prefix_list = []
-    jemalloc_prefix = "LD_PRELOAD={}/intel_extension_for_transformers/llm/runtime/deprecated/"\
-                      "third_party/jemalloc/lib/libjemalloc.so:$LD_PRELOAD ".format(path)
+    jemalloc_prefix = f"LD_PRELOAD={path}/intel_extension_for_transformers/llm/runtime/deprecated/third_party/jemalloc/lib/libjemalloc.so:$LD_PRELOAD "
     if args.memory_allocator == "jemalloc":
         memory_prefix_list.append(jemalloc_prefix)
 
     elif args.memory_allocator == "default":
         memory_prefix_list.append("")
     elif args.memory_allocator == "auto":
-        memory_prefix_list.append(jemalloc_prefix)
-        memory_prefix_list.append("")
+        memory_prefix_list.extend((jemalloc_prefix, ""))
     else:
         print("please enter correct setting")
 
@@ -341,7 +330,7 @@ def set_cmd_prefix(cmd, core_list):
     """set memory prefix of cmd"""
     cmd.append('numactl')
     cmd.append('--localalloc')
-    cmd.append('--physcpubind={}'.format(','.join(core_list.astype(str))))
+    cmd.append(f"--physcpubind={','.join(core_list.astype(str))}")
 
 def set_numactl_env(env_cmd, core_list):
     """set numactl env"""
@@ -351,9 +340,10 @@ def set_numactl_env(env_cmd, core_list):
 def set_jemalloc_env(env_cmd, memory_allocator, path):
     """set jemalloc env"""
     if memory_allocator == "jemalloc":
-        env_cmd["LD_PRELOAD"] = "{}/intel_extension_for_transformers/llm/runtime/deprecated/executor/" \
-                                "third_party/jemalloc/lib/libjemalloc.so:$".format(path) \
-                                + env_cmd["LD_PRELOAD"]        
+        env_cmd["LD_PRELOAD"] = (
+            f"{path}/intel_extension_for_transformers/llm/runtime/deprecated/executor/third_party/jemalloc/lib/libjemalloc.so:$"
+            + env_cmd["LD_PRELOAD"]
+        )        
 
 def set_unified_buffer_env(env_cmd, memory_planning):
     """set unified buffer env"""

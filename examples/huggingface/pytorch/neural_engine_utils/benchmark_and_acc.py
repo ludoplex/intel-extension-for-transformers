@@ -7,14 +7,14 @@ import shutil
 
 def utils_bak(path):
     """backup utils.py."""
-    src = path + "/utils.py"
-    src_bak = path + "/utils.py.bak"
+    src = f"{path}/utils.py"
+    src_bak = f"{path}/utils.py.bak"
     shutil.copyfile(src, src_bak)
 
 def utils_copy_after_benchmark(path):
     """copy backup file to original."""
-    src = path + "/utils.py.bak"
-    src_bak = path + "/utils.py"
+    src = f"{path}/utils.py.bak"
+    src_bak = f"{path}/utils.py"
     shutil.copyfile(src, src_bak)
 
 
@@ -22,24 +22,28 @@ def utils_copy_after_benchmark(path):
 def modify_sequence(path, seq_len, dataset_reorder):
     """change sequence len and dataset order."""
     utils_bak(path)
-    src = path + "/utils.py"
-    src_tmp = path + "/utils_tmp.py"
+    src = f"{path}/utils.py"
+    src_tmp = f"{path}/utils_tmp.py"
     with open(src, "r") as src_fp:
         with open(src_tmp, "w") as dst_fp:
-            for line in src_fp.readlines():
+            for line in src_fp:
                 line_replace = line
                 if line.find("np.array(segment_ids_data)") >= 0 and dataset_reorder == 1:
                     line_replace = line.replace("segment_ids_data", "input_mask_data")
                 elif line.find("np.array(input_mask_data)") >= 0 and dataset_reorder == 1:
                     line_replace = line.replace("input_mask_data", "segment_ids_data")
                 elif line.find("max_length=128") >= 0 and seq_len > 0:
-                    line_replace = line.replace("max_length=128", "max_length={}".format(seq_len))
+                    line_replace = line.replace("max_length=128", f"max_length={seq_len}")
                 elif line.find("F_max_seq_length = 128") >= 0 and seq_len > 0:
-                    line_replace = line.replace("F_max_seq_length = 128", "F_max_seq_length = {}" \
-                                  .format(seq_len))
+                    line_replace = line.replace(
+                        "F_max_seq_length = 128",
+                        f"F_max_seq_length = {seq_len}",
+                    )
                 elif line.find("F_max_seq_length = 384") >= 0 and seq_len > 0:
-                    line_replace = line.replace("F_max_seq_length = 384", "F_max_seq_length = {}" \
-                                  .format(seq_len))
+                    line_replace = line.replace(
+                        "F_max_seq_length = 384",
+                        f"F_max_seq_length = {seq_len}",
+                    )
                 dst_fp.write(line_replace)
 
     dst_fp.close()
@@ -56,28 +60,23 @@ def modify_yaml(
         label_file,
         vocab_file):
     """we copy bert.yaml and change attribute."""
-    with open(path + "/bert_static.yaml", "r") as src_fp:
-        with open(path + "/bert_tmp.yaml", "w") as dst_fp:
-            for line in src_fp.readlines():
+    with open(f"{path}/bert_static.yaml", "r") as src_fp:
+        with open(f"{path}/bert_tmp.yaml", "w") as dst_fp:
+            for line in src_fp:
                 if line.find("num_of_instance") >= 0:
-                    dst_fp.write(
-                        "      num_of_instance: {}\n".format(instance))
+                    dst_fp.write(f"      num_of_instance: {instance}\n")
                 elif line.find("cores_per_instance") >= 0:
-                    dst_fp.write(
-                        "      cores_per_instance: {}\n".format(cores))
+                    dst_fp.write(f"      cores_per_instance: {cores}\n")
                 elif line.find("warmup") >= 0:
-                    dst_fp.write("    warmup: {}\n".format(warmup))
+                    dst_fp.write(f"    warmup: {warmup}\n")
                 elif line.find("iteration") >= 0:
-                    dst_fp.write("    iteration: {}\n".format(iteration))
+                    dst_fp.write(f"    iteration: {iteration}\n")
                 elif line.find("label_file") >= 0:
-                    dst_fp.write(
-                        "          label_file: {}\n".format(label_file))
+                    dst_fp.write(f"          label_file: {label_file}\n")
                 elif line.find("vocab_file") >= 0:
-                    dst_fp.write(
-                        "          vocab_file: {}\n".format(vocab_file))
+                    dst_fp.write(f"          vocab_file: {vocab_file}\n")
                 elif line.find("framework") >= 0:
-                    dst_fp.write(
-                        "  framework: {}\n".format(framework))
+                    dst_fp.write(f"  framework: {framework}\n")
                 else:
                     dst_fp.write(line)
 
@@ -102,15 +101,15 @@ def concat_allocator_cmd(allocator, cmd):
     """add env variable for different allocator modes."""
     new_cmd = cmd
     if allocator == "direct":
-        new_cmd = "DIRECT_BUFFER=1 " + cmd
+        new_cmd = f"DIRECT_BUFFER=1 {cmd}"
     elif allocator == "unified":
-        new_cmd = "UNIFIED_BUFFER=1 " + cmd
+        new_cmd = f"UNIFIED_BUFFER=1 {cmd}"
     elif allocator == "je_direct":
-        new_cmd = "JEMALLOC=1 DIRECT_BUFFER=1 " + cmd
+        new_cmd = f"JEMALLOC=1 DIRECT_BUFFER=1 {cmd}"
     elif allocator == "je_cycle":
-        new_cmd = "JEMALLOC=1 " + cmd
+        new_cmd = f"JEMALLOC=1 {cmd}"
     elif allocator == "je_unified":
-        new_cmd = "JEMALLOC=1 UNIFIED_BUFFER=1 " + cmd
+        new_cmd = f"JEMALLOC=1 UNIFIED_BUFFER=1 {cmd}"
     return new_cmd
 
 
@@ -123,11 +122,11 @@ def grab_log(is_performance, path, instance, cores, log_fp):
         throughput_str = ""
         latency_str = ""
         while i < instance:
-            log_path = "{}/{}_{}_{}.log".format(path, instance, cores, i)
+            log_path = f"{path}/{instance}_{cores}_{i}.log"
             i += 1
             try:
                 with open(log_path, 'r') as src_fp:
-                    for line in src_fp.readlines():
+                    for line in src_fp:
                         if line.find("Throughput") >= 0:
                             throughput_str = line
                         elif line.find("Latency") >= 0:
@@ -145,8 +144,8 @@ def grab_log(is_performance, path, instance, cores, log_fp):
         print("========please check acc with screen messages=============")
     try:
         if is_performance:
-            log_fp.write("Troughput: {} images/sec\n".format(throughput))
-            log_fp.write("Latency: {} ms\n".format(latency))
+            log_fp.write(f"Troughput: {throughput} images/sec\n")
+            log_fp.write(f"Latency: {latency} ms\n")
         log_fp.write("--------------------------------------\n")
     except OSError as ex:
         print(ex)
@@ -156,20 +155,16 @@ def execute_and_grab(is_performance, model_file, model_path, batch, allocator):
     """execute the run_engine.py."""
     cmd = ""
     if is_performance:
-        cmd = "GLOG_minloglevel=2 python run_engine.py --input_model={}/{}" \
-              " --config={}/bert_tmp.yaml --benchmark --mode=performance --batch_size={}" \
-              .format(model_path, model_file, model_path, batch)
+        cmd = f"GLOG_minloglevel=2 python run_engine.py --input_model={model_path}/{model_file} --config={model_path}/bert_tmp.yaml --benchmark --mode=performance --batch_size={batch}"
     else:
 
-        cmd = "GLOG_minloglevel=2 ONEDNN_VERBOSE=1 python run_engine.py --input_model={}/{}" \
-              " --config={}/bert_tmp.yaml --benchmark --mode=accuracy --batch_size={}" \
-              .format(model_path, model_file, model_path, batch)
+        cmd = f"GLOG_minloglevel=2 ONEDNN_VERBOSE=1 python run_engine.py --input_model={model_path}/{model_file} --config={model_path}/bert_tmp.yaml --benchmark --mode=accuracy --batch_size={batch}"
 
     cmd = concat_allocator_cmd(allocator, cmd)
 
     try:
         with open("tmp.sh", "w") as file_p:
-            file_p.write("cd {}\n".format(model_path))
+            file_p.write(f"cd {model_path}\n")
             file_p.write(cmd)
         pro = subprocess.Popen(
             "bash tmp.sh",
@@ -196,8 +191,8 @@ def test_all(
         output_file=""):
     """find model and do benchmark."""
     print("search start")
-    print("performance mode is {}".format(is_performance))
-    print("search for int8 model {}".format(is_int8))
+    print(f"performance mode is {is_performance}")
+    print(f"search for int8 model {is_int8}")
     benchmark_models = []
     benchmark_path = []
     if allocator_mode is None:
@@ -235,15 +230,12 @@ def test_all(
                                 break
 
                 if model_file == "":
-                    print("{}_{} not find model file!!!".format(model, task))
-                else:
-                    if "{}_{}".format(model, task) not in support_models:
-                        last_element_index = len(benchmark_models)-1
-                        benchmark_models = benchmark_models[: last_element_index]
-                        last_element_index = len(benchmark_path)-1
-                        benchmark_path = benchmark_path[:last_element_index]
-                        continue
-
+                    print(f"{model}_{task} not find model file!!!")
+                elif f"{model}_{task}" not in support_models:
+                    last_element_index = len(benchmark_models)-1
+                    benchmark_models = benchmark_models[: last_element_index]
+                    last_element_index = len(benchmark_path)-1
+                    benchmark_path = benchmark_path[:last_element_index]
     print("search end")
     if not benchmark_models:
         print("============no .onnx or .pb for fp32, no ir folder for int8==============\n")
@@ -275,8 +267,8 @@ def test_all(
                 for alloc_mode_id, alloc_mode_val in enumerate(allocator_mode):
                     allocator = numbers_to_strings(alloc_mode_val)
                     file_p.write(
-                        "Model_{}_Allocator_{}-{}\n".format(
-                            bench_model_file, alloc_mode_id, allocator))
+                        f"Model_{bench_model_file}_Allocator_{alloc_mode_id}-{allocator}\n"
+                    )
 
                     for ins_idx, ins_val in enumerate(instance):
                         modify_yaml(
@@ -289,10 +281,8 @@ def test_all(
                             label_file,
                             vocab_file)
                         for ba_s in batch:
-                            file_p.write("Path {}\n".format(bench_model_path))
-                            file_p.write(
-                                "Instance_{}_Cores_{}_Batch_{}\n".format(
-                                    ins_val, cores[ins_idx], ba_s))
+                            file_p.write(f"Path {bench_model_path}\n")
+                            file_p.write(f"Instance_{ins_val}_Cores_{cores[ins_idx]}_Batch_{ba_s}\n")
                             execute_and_grab(
                                 is_performance, bench_model_file, bench_model_path, ba_s, allocator)
                             grab_log(
@@ -313,15 +303,7 @@ def test_all(
 
 def main():
     """parsing user arg."""
-    is_performance = True
-    is_int8 = False
-    output_file = "benchmark.txt"
-    sequence_len = 0
-    iterations = 10
-    warmup = 5
-    batch_size = [16, 32]
     instance_cores = [[4, 7]]
-    allocator_mode = [1]
     model_list = [
         "bert_mini_mrpc",
         "distilroberta_base_wnli",
@@ -420,16 +402,8 @@ def main():
         dest='output_file')
 
     args = parser.parse_args()
-    if args.batch:
-        batch_size = []
-        for batch_val in args.batch:
-            batch_size.append(batch_val)
-
-    if args.allocator:
-        allocator_mode = []
-        for allocator_val in args.allocator:
-            allocator_mode.append(allocator_val)
-
+    batch_size = list(args.batch) if args.batch else [16, 32]
+    allocator_mode = list(args.allocator) if args.allocator else [1]
     if args.i_c:
         instance_cores = []
         ic_val = []
@@ -439,35 +413,15 @@ def main():
             instance_cores.append(tmp_list)
 
     if args.model_name:
-        model_list = []
-        for model_val in args.model_name:
-            model_list.append(model_val)
-
-    if args.warmup:
-        warmup = args.warmup
-    if args.iterations:
-        iterations = args.iterations
-
-    if args.int8 == 1:
-        is_int8 = True
-
-    if args.is_performance == 0:
-        is_performance = False
-
-    label_file = ""
-    if args.label_file:
-        label_file = args.label_file
-    vocab_file = ""
-    if args.vocab_file:
-        vocab_file = args.vocab_file
-
-    if args.output_file:
-        output_file = args.output_file
-
-    if args.seq_len:
-        sequence_len = args.seq_len
-
-
+        model_list = list(args.model_name)
+    warmup = args.warmup if args.warmup else 5
+    iterations = args.iterations if args.iterations else 10
+    is_int8 = args.int8 == 1
+    is_performance = args.is_performance != 0
+    label_file = args.label_file if args.label_file else ""
+    vocab_file = args.vocab_file if args.vocab_file else ""
+    output_file = args.output_file if args.output_file else "benchmark.txt"
+    sequence_len = args.seq_len if args.seq_len else 0
     test_all(
         is_performance,
         model_list,

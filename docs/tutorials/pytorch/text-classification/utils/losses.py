@@ -5,7 +5,7 @@ from torch.nn import CrossEntropyLoss, MSELoss
 class ConstLambdaLoss():
 
     def __init__(self, loss_lambda: float = 0.0) -> None:
-        self.loss_lambda = float(loss_lambda)
+        self.loss_lambda = loss_lambda
         self.cross_entropy = CrossEntropyLoss(reduce=False)
 
     def __call__(self, logits: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
@@ -51,7 +51,7 @@ class BaselineLoss():
 class ConstLambdaLossOnes():
 
     def __init__(self, loss_lambda: float = 0.0) -> None:
-        self.loss_lambda = float(loss_lambda)
+        self.loss_lambda = loss_lambda
         self.cross_entropy = CrossEntropyLoss(reduce=False)
 
     def __call__(self, logits: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
@@ -91,7 +91,7 @@ class DynamicLambdaLoss():
 class ConstLambdaLossWithOr():
 
     def __init__(self, loss_lambda: float = 0.0) -> None:
-        self.loss_lambda = float(loss_lambda)
+        self.loss_lambda = loss_lambda
         self.cross_entropy = CrossEntropyLoss(reduce=False)
 
     def __call__(self, logits: torch.Tensor, target: torch.Tensor) -> torch.Tensor:

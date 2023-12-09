@@ -154,23 +154,17 @@ def _compute_softmax(scores):
         exp_scores.append(x)
         total_sum += x
 
-    probs = []
-    for score in exp_scores:
-        probs.append(score / total_sum)
-    return probs
+    return [score / total_sum for score in exp_scores]
 def write_predictions(all_examples, all_features, all_results, n_best_size,
                       max_answer_length, do_lower_case, output_prediction_file):
     """Write final predictions to the json file and log-odds of null if needed."""
-    print("Writing predictions to: %s" % (output_prediction_file))
+    print(f"Writing predictions to: {output_prediction_file}")
 
     example_index_to_features = collections.defaultdict(list)
     for feature in all_features:
         example_index_to_features[feature.example_index].append(feature)
 
-    unique_id_to_result = {}
-    for result in all_results:
-        unique_id_to_result[result.unique_id] = result
-
+    unique_id_to_result = {result.unique_id: result for result in all_results}
     _PrelimPrediction = collections.namedtuple(  # pylint: disable=invalid-name
         "PrelimPrediction",
         ["feature_index", "start_index", "end_index", "start_logit", "end_logit"])
@@ -179,15 +173,15 @@ def write_predictions(all_examples, all_features, all_results, n_best_size,
     all_nbest_json = collections.OrderedDict()
     scores_diff_json = collections.OrderedDict()
 
-    for (example_index, example) in enumerate(all_examples):
+    # keep track of the minimum score of null start+end of position 0
+    score_null = 1000000  # large and positive
+    min_null_feature_index = 0  # the paragraph slice with min mull score
+    null_start_logit = 0  # the start logit at the slice with min null score
+    null_end_logit = 0  # the end logit at the slice with min null score
+    for example_index, example in enumerate(all_examples):
         features = example_index_to_features[example_index]
 
         prelim_predictions = []
-        # keep track of the minimum score of null start+end of position 0
-        score_null = 1000000  # large and positive
-        min_null_feature_index = 0  # the paragraph slice with min mull score
-        null_start_logit = 0  # the start logit at the slice with min null score
-        null_end_logit = 0  # the end logit at the slice with min null score
         for (feature_index, feature) in enumerate(features):
             result = unique_id_to_result[feature.unique_id]
             start_indexes = _get_best_indexes(result.start_logits, n_best_size)
@@ -268,7 +262,7 @@ def write_predictions(all_examples, all_features, all_results, n_best_size,
             nbest.append(
                 _NbestPrediction(text="empty", start_logit=0.0, end_logit=0.0))
 
-        assert len(nbest) >= 1
+        assert nbest
 
         total_scores = []
         best_non_null_entry = None
@@ -289,7 +283,7 @@ def write_predictions(all_examples, all_features, all_results, n_best_size,
             output["end_logit"] = entry.end_logit
             nbest_json.append(output)
 
-        assert len(nbest_json) >= 1
+        assert nbest_json
 
         all_predictions[example.qas_id] = nbest_json[0]["text"]
 

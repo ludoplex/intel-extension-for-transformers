@@ -192,19 +192,28 @@ def trace_model(model, tokenizer):
     if 'llama' in model_type:
         input_ids = init_input_ids.clone().unsqueeze(0)
         attention_mask = torch.ones(input_ids.shape)
-        past_key_value = tuple([(torch.zeros([1,32,34,128]), torch.zeros([1,32,34,128])) for i in range(32)])
+        past_key_value = tuple(
+            (torch.zeros([1, 32, 34, 128]), torch.zeros([1, 32, 34, 128]))
+            for _ in range(32)
+        )
         if 'llama_13b' in model_type:
-            past_key_value = tuple([(torch.zeros([1,40,34,128]), torch.zeros([1,40,34,128])) for i in range(40)])
+            past_key_value = tuple(
+                (torch.zeros([1, 40, 34, 128]), torch.zeros([1, 40, 34, 128]))
+                for _ in range(40)
+            )
         net = model
-        traced_model = torch.jit.trace(net, (input_ids, attention_mask, past_key_value))
     else:
         input_ids = init_input_ids.clone().unsqueeze(0)
         attention_mask = torch.ones(input_ids.shape)
-        past_key_value = tuple([(torch.zeros([1,num_attention_heads,0,d_k]),
-                                    torch.zeros([1,num_attention_heads,0,d_k])) for i in range(num_layers)])
+        past_key_value = tuple(
+            (
+                torch.zeros([1, num_attention_heads, 0, d_k]),
+                torch.zeros([1, num_attention_heads, 0, d_k]),
+            )
+            for _ in range(num_layers)
+        )
         net = Net(model)
-        traced_model = torch.jit.trace(net, (input_ids, attention_mask, past_key_value))
-    return traced_model
+    return torch.jit.trace(net, (input_ids, attention_mask, past_key_value))
     
 
 def parse_args():
@@ -387,16 +396,14 @@ def parse_args():
     )
     args = parser.parse_args()
 
-    # Sanity checks
     if args.calibration_dataset_name is None and args.train_file is None and args.validation_file is None:
         raise ValueError("Need either a dataset name or a training/validation file.")
-    else:
-        if args.train_file is not None:
-            extension = args.train_file.split(".")[-1]
-            assert extension in ["csv", "json", "txt"], "`train_file` should be a csv, json or txt file."
-        if args.validation_file is not None:
-            extension = args.validation_file.split(".")[-1]
-            assert extension in ["csv", "json", "txt"], "`validation_file` should be a csv, json or txt file."
+    if args.train_file is not None:
+        extension = args.train_file.split(".")[-1]
+        assert extension in ["csv", "json", "txt"], "`train_file` should be a csv, json or txt file."
+    if args.validation_file is not None:
+        extension = args.validation_file.split(".")[-1]
+        assert extension in ["csv", "json", "txt"], "`validation_file` should be a csv, json or txt file."
 
     if args.push_to_hub:
         assert args.output_dir is not None, "Need an `output_dir` to create a repo when `--push_to_hub` is passed."

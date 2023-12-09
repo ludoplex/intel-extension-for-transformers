@@ -13,7 +13,7 @@ from setuptools_scm import get_version
 version = get_version(root='../..', relative_to=__file__)
 release = version
 
-repo_url = "https://github.com/intel/intel-extension-for-transformers/tree/v{}".format(version)
+repo_url = f"https://github.com/intel/intel-extension-for-transformers/tree/v{version}"
 
 with open("version.txt", "w") as f:
     f.write(version)
@@ -88,8 +88,7 @@ def linkcode_resolve(domain, info):
     if not info['module']:
         return None
     filename = info['module'].replace('.', '/')
-    res = "{}/{}.py".format(repo_url, filename)
-    return res
+    return f"{repo_url}/{filename}.py"
 
 # -- Breathe configuration -------------------------------------------------
 breathe_projects = {

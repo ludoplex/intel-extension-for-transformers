@@ -18,7 +18,7 @@ args = parser.parse_args()
 print(args)
 
 model_id = args.model_name
-is_generator = True if 'generator' in model_id else False
+is_generator = 'generator' in model_id
 
 if os.path.exists(args.pt_file):
     print('PT model exists, compile will be executed.')
@@ -35,9 +35,9 @@ else:
         jit_model = torch.jit.trace(pt_model, (inputs.input_ids, 
                                     inputs.attention_mask, inputs.token_type_ids))
         torch.jit.save(jit_model, args.pt_file)
-        print("Traced model is saved as {}".format(args.pt_file))
+        print(f"Traced model is saved as {args.pt_file}")
     else:
-        print("Model with {} can't be traced, please provide one.".format(args.dtype))
+        print(f"Model with {args.dtype} can't be traced, please provide one.")
         sys.exit(1)
 
 if args.dtype == "bf16":
@@ -48,6 +48,6 @@ elif args.dtype == "fp32":
 else:
     print("Only supports fp32 and bf16 dtype.")
     sys.exit(1)
-        
+
 graph.save(args.output_model)
-print('Neural Engine ir is saved as {}'.format(args.output_model))
+print(f'Neural Engine ir is saved as {args.output_model}')

@@ -84,7 +84,7 @@ def compute_performance(dataset, graph, log, log_file, warm_up, batch_size, seq_
     duration_w = duration[warm_up:]
     all_latency = log_file.replace('.log', '.npy')
     _, file_name = os.path.split(all_latency)
-    _ = os.getcwd() + '/all_latency'
+    _ = f'{os.getcwd()}/all_latency'
     try:
         if os.path.exists(_) == False:
             os.mkdir(_)
@@ -97,8 +97,8 @@ def compute_performance(dataset, graph, log, log_file, warm_up, batch_size, seq_
     p50_latency = np.percentile(duration_w, 50) / batch_size
     p90_latency = np.percentile(duration_w, 90) / batch_size
     p99_latency = np.percentile(duration_w, 99) / batch_size
-    log.info("Batch size = {}".format(batch_size))
-    log.info("Sequence length = {}".format(seq_len))
+    log.info(f"Batch size = {batch_size}")
+    log.info(f"Sequence length = {seq_len}")
     log.info("P50 Latency: {:.3f} ms".format(p50_latency * 1000))
     log.info("P90 Latency: {:.3f} ms".format(p90_latency * 1000))
     log.info("P99 Latency: {:.3f} ms".format(p99_latency * 1000))

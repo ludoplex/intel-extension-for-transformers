@@ -56,7 +56,7 @@ def eval(model_path):
     librispeech_test_clean = load_dataset("librispeech_asr", "clean", split="test", cache_dir=args.cache_dir)
     processor = WhisperProcessor.from_pretrained(args.model_name_or_path)
 
-    for idx, batch in enumerate(librispeech_test_clean):
+    for batch in librispeech_test_clean:
         audio = batch["audio"]
         input_features = processor(audio["array"], sampling_rate=audio["sampling_rate"], return_tensors="pt").input_features
         reference = processor.tokenizer._normalize(batch['text'])
@@ -92,7 +92,7 @@ class Dataloader:
     def __iter__(self):
         config = AutoConfig.from_pretrained(args.model_name_or_path)
         processor = WhisperProcessor.from_pretrained(args.model_name_or_path)
-        for idx, batch in enumerate(self.librispeech_test_clean):
+        for batch in self.librispeech_test_clean:
             audio = batch["audio"]
             input_features = processor(audio["array"], sampling_rate=audio["sampling_rate"], return_tensors="pt").input_features.detach().numpy()
             input_ids = torch.ones((args.batch_size, 1), dtype=torch.long, device='cpu') * config.decoder_start_token_id
@@ -108,7 +108,7 @@ class Dataloader:
                 ort_inputs = {}
                 ort_inputs['input_ids'] = input_ids.detach().numpy().astype('int64')
                 ort_inputs['encoder_hidden_states'] = encoder_outputs[0]
- 
+
                 if self.model_path.endswith('decoder_model.onnx'):
                     yield ort_inputs, 0
                 else:
@@ -118,19 +118,19 @@ class Dataloader:
                             outputs = self.decoder_sess.run(None, ort_inputs)
                             kv = outputs[1:]
                             ort_inputs.pop('encoder_hidden_states')
-                            for i in range(int(len(kv) / 4)):
-                                ort_inputs['past_key_values.{}.decoder.key'.format(i)] = kv[i * 4]
-                                ort_inputs['past_key_values.{}.decoder.value'.format(i)] = kv[i * 4 + 1]
-                                ort_inputs['past_key_values.{}.encoder.key'.format(i)] = kv[i * 4 + 2]
-                                ort_inputs['past_key_values.{}.encoder.value'.format(i)] = kv[i * 4 + 3]
- 
+                            for i in range(len(kv) // 4):
+                                ort_inputs[f'past_key_values.{i}.decoder.key'] = kv[i * 4]
+                                ort_inputs[f'past_key_values.{i}.decoder.value'] = kv[i * 4 + 1]
+                                ort_inputs[f'past_key_values.{i}.encoder.key'] = kv[i * 4 + 2]
+                                ort_inputs[f'past_key_values.{i}.encoder.value'] = kv[i * 4 + 3]
+
                         else:
                             outputs = self.decoder_kv_sess.run(None, ort_inputs)
                             kv = outputs[1:]
-                            for i in range(int(len(kv) / 2)):
-                                ort_inputs['past_key_values.{}.decoder.key'.format(i)] = kv[i * 2]
-                                ort_inputs['past_key_values.{}.decoder.value'.format(i)] = kv[i * 2 + 1]
- 
+                            for i in range(len(kv) // 2):
+                                ort_inputs[f'past_key_values.{i}.decoder.key'] = kv[i * 2]
+                                ort_inputs[f'past_key_values.{i}.decoder.value'] = kv[i * 2 + 1]
+
                         predicted_ids = torch.from_numpy(outputs[0])
                         next_token_logits = predicted_ids[:, -1, :]
                         next_tokens_scores = self.logits_processor(input_ids, next_token_logits)

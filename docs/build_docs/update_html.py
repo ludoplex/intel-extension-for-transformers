@@ -9,10 +9,7 @@ def find_index_path(index_file):
             if pos<0:
                 continue
             pos1 = line.rfind("\"", 0, pos)
-            if pos1<0:
-                return ""
-            else:
-                return "../" + line[pos1+1: pos]
+            return "" if pos1<0 else f"../{line[pos1 + 1:pos]}"
     return "ignore"
 
 def update_version_link(version, folder_name, index_file):
@@ -23,25 +20,25 @@ def update_version_link(version, folder_name, index_file):
 
     with open(index_file, "r") as f:
         index_buf = f.read()
-        key_str='  <div class="version">\n                {}\n              </div>'.format(version)
+        key_str = f'  <div class="version">\n                {version}\n              </div>'
         version_list = '''<div class="version">
               <a href="{}versions.html">{}▼</a>
               <p>Click link above to switch version</p>
             </div>'''.format(index_path, folder_name)
         #print(index_buf.find(key_str))
         index_buf = index_buf.replace(key_str, version_list)
-        #print(index_buf)
+            #print(index_buf)
 
     with open(index_file, "w") as f:
         f.write(index_buf)
 
 
 def update_source_url(version, folder_name, index_file):
-    if 'latest'!= folder_name:
+    if folder_name != 'latest':
         return
 
     base_url = "class=\"reference external\" href=\"https://github.com/intel/intel-extension-for-transformers/tree/{}/"
-    repo_url = base_url.format("v"+version)
+    repo_url = base_url.format(f"v{version}")
     target = base_url.format("master")
     with open(index_file, "r") as f:
         index_buf = f.read()
@@ -52,12 +49,12 @@ def update_source_url(version, folder_name, index_file):
 
 def main(folder, version):
     folder_name=os.path.basename(folder)
-    for index_file in glob.glob('{}/**/*.html'.format(folder),recursive = True):
+    for index_file in glob.glob(f'{folder}/**/*.html', recursive = True):
         update_version_link(version, folder_name, index_file)
         update_source_url(version, folder_name, index_file)
 
 def help(me):
-    print("python {} html_folder version".format(me))
+    print(f"python {me} html_folder version")
 
 if __name__=="__main__":
     if len(sys.argv)<3:

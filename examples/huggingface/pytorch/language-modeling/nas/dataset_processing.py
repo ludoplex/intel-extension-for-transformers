@@ -41,30 +41,6 @@ def line_by_line_process(datasets, tokenizer, args, text_column_name='text'):
     # When using line_by_line, we just tokenize each nonempty line.
     # TODO need to fix implementation to work with the format of 1 article per entry
     raise NotImplementedError("Need to fix implementation")
-    padding = "max_length" if args.pad_to_max_length else False
-
-    def tokenize_function(examples):
-        # Remove empty lines
-        examples[text_column_name] = [line for line in examples[text_column_name]
-                                      if len(line) > 0 and not line.isspace()]
-        return tokenizer(
-            examples[text_column_name],
-            padding=padding,
-            truncation=True,
-            max_length=args.max_seq_length,
-            # We use this option because DataCollatorForLanguageModeling (see below) is more efficient when it
-            # receives the `special_tokens_mask`.
-            return_special_tokens_mask=True,
-        )
-
-    tokenized_dataset = datasets.map(
-        tokenize_function,
-        batched=True,
-        num_proc=args.preprocessing_num_workers,
-        remove_columns=[text_column_name],
-        load_from_cache_file=not args.overwrite_cache,
-    )
-    return tokenized_dataset
 
 
 def concatenate_process(datasets, tokenizer, args, text_column_name='text'):
@@ -72,46 +48,6 @@ def concatenate_process(datasets, tokenizer, args, text_column_name='text'):
     # efficient when it receives the `special_tokens_mask`.
     # TODO fix implementation, need to take into account special tokens
     raise NotImplementedError("Need to fix implementation")
-
-    def tokenize_function(examples):
-        return tokenizer(examples[text_column_name], return_special_tokens_mask=True)
-
-    tokenized_dataset = datasets.map(
-        tokenize_function,
-        batched=True,
-        num_proc=args.preprocessing_num_workers,
-        remove_columns=[text_column_name],
-        load_from_cache_file=not args.overwrite_cache,
-    )
-
-    max_seq_length = calc_max_seq_length(tokenizer, args)
-
-    # Main data processing function that will concatenate all texts from our dataset and generate chunks of
-    # max_seq_length.
-    def group_texts(examples):
-        # Concatenate all texts.
-        concatenated_examples = {
-            k: sum(examples[k], []) for k in examples.keys()}
-        total_length = len(concatenated_examples[list(examples.keys())[0]])
-        # We drop the small remainder, we could add padding if the model supported it instead of this drop, you can
-        # customize this part to your needs.
-        total_length = (total_length // max_seq_length) * max_seq_length
-        # Split by chunks of max_len.
-        result = {
-            k: [t[i: i + max_seq_length]
-                for i in range(0, total_length, max_seq_length)]
-            for k, t in concatenated_examples.items()
-        }
-        return result
-
-    tokenized_dataset = tokenized_dataset.map(
-        group_texts,
-        batched=True,
-        num_proc=args.preprocessing_num_workers,
-        load_from_cache_file=not args.overwrite_cache,
-    )
-
-    return tokenized_dataset
 
 
 def wikitext_preprocess(datasets, args):
@@ -283,8 +219,8 @@ def segment_pair_nsp_process(datasets, tokenizer, args, text_column_name='text')
                             for j in range(a_end, len(current_chunk)):
                                 tokens_b.extend(current_chunk[j])
 
-                        assert len(tokens_a) >= 1
-                        assert len(tokens_b) >= 1
+                        assert tokens_a
+                        assert tokens_b
 
                         instances.append((tokens_a, tokens_b))
                         next_sentence_label.append(int(is_random_next))
@@ -496,9 +432,9 @@ def _data_process_inner(tokenizer, args, text_column_name='text'):
         data = load_dataset(name, config, args)
         try:
             data = DATASET_SPECIFIC_PREPROCESS[name](data, args)
-            logger.info("Executing specific processing for {}".format(name))
+            logger.info(f"Executing specific processing for {name}")
         except KeyError:
-            logger.info("No specific preprocessing for {}".format(name))
+            logger.info(f"No specific preprocessing for {name}")
         data_list.append(data)
     # Concatenate datasets together
     merged_data = datasets.DatasetDict()
@@ -515,8 +451,7 @@ def _data_process_inner(tokenizer, args, text_column_name='text'):
         if os.path.exists(args.dataset_cache_directory) and not args.overwrite_cache:
             raise FileExistsError(
                 f"Path: {args.dataset_cache_directory} already exists. Provide a different path or set --overwrite_cache")
-        logger.info("Saving processed data in {}".format(
-            args.dataset_cache_directory))
+        logger.info(f"Saving processed data in {args.dataset_cache_directory}")
         proc_datasets.save_to_disk(args.dataset_cache_directory)
     return proc_datasets
 
@@ -524,8 +459,7 @@ def _data_process_inner(tokenizer, args, text_column_name='text'):
 def data_process(tokenizer, args, text_column_name='text'):
     if args.dataset_cache_directory is not None and not args.overwrite_cache:
         try:
-            logger.info("Loading processed data from {}".format(
-                args.dataset_cache_directory))
+            logger.info(f"Loading processed data from {args.dataset_cache_directory}")
             proc_datasets = datasets.load_from_disk(
                 args.dataset_cache_directory)
             logger.info("Loaded processed data from disk successfully.")
