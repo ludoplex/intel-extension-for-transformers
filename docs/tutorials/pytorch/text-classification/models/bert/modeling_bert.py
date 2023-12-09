@@ -146,12 +146,14 @@ def load_tf_weights_in_bert(model, config, tf_checkpoint_path):
                 scope_names = re.split(r"_(\d+)", m_name)
             else:
                 scope_names = [m_name]
-            if scope_names[0] == "kernel" or scope_names[0] == "gamma":
+            if (
+                scope_names[0] in ["kernel", "gamma"]
+                or scope_names[0] not in ["output_bias", "beta"]
+                and scope_names[0] == "output_weights"
+            ):
                 pointer = getattr(pointer, "weight")
-            elif scope_names[0] == "output_bias" or scope_names[0] == "beta":
+            elif scope_names[0] in ["output_bias", "beta"]:
                 pointer = getattr(pointer, "bias")
-            elif scope_names[0] == "output_weights":
-                pointer = getattr(pointer, "weight")
             elif scope_names[0] == "squad":
                 pointer = getattr(pointer, "classifier")
             else:
@@ -264,7 +266,7 @@ class BertSelfAttention(nn.Module):
         self.position_embedding_type = position_embedding_type or getattr(
             config, "position_embedding_type", "absolute"
         )
-        if self.position_embedding_type == "relative_key" or self.position_embedding_type == "relative_key_query":
+        if self.position_embedding_type in ["relative_key", "relative_key_query"]:
             self.max_position_embeddings = config.max_position_embeddings
             self.distance_embedding = nn.Embedding(2 * config.max_position_embeddings - 1, self.attention_head_size)
 
@@ -325,7 +327,7 @@ class BertSelfAttention(nn.Module):
         # Take the dot product between "query" and "key" to get the raw attention scores.
         attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))
 
-        if self.position_embedding_type == "relative_key" or self.position_embedding_type == "relative_key_query":
+        if self.position_embedding_type in ["relative_key", "relative_key_query"]:
             seq_length = hidden_states.size()[1]
             position_ids_l = torch.arange(seq_length, dtype=torch.long, device=hidden_states.device).view(-1, 1)
             position_ids_r = torch.arange(seq_length, dtype=torch.long, device=hidden_states.device).view(1, -1)
@@ -428,8 +430,7 @@ class BertAttention(nn.Module):
             output_attentions,
         )
         attention_output = self.output(self_outputs[0], hidden_states)
-        outputs = (attention_output,) + self_outputs[1:]  # add attentions if we output them
-        return outputs
+        return (attention_output,) + self_outputs[1:]
 
 
 class BertIntermediate(nn.Module):
@@ -543,8 +544,7 @@ class BertLayer(nn.Module):
 
     def feed_forward_chunk(self, attention_output):
         intermediate_output = self.intermediate(attention_output)
-        layer_output = self.output(intermediate_output, attention_output)
-        return layer_output
+        return self.output(intermediate_output, attention_output)
 
 
 class BertEncoder(nn.Module):
@@ -703,8 +703,7 @@ class BertOnlyMLMHead(nn.Module):
         self.predictions = BertLMPredictionHead(config)
 
     def forward(self, sequence_output: torch.Tensor) -> torch.Tensor:
-        prediction_scores = self.predictions(sequence_output)
-        return prediction_scores
+        return self.predictions(sequence_output)
 
 
 class BertOnlyNSPHead(nn.Module):
@@ -713,8 +712,7 @@ class BertOnlyNSPHead(nn.Module):
         self.seq_relationship = nn.Linear(config.hidden_size, 2)
 
     def forward(self, pooled_output):
-        seq_relationship_score = self.seq_relationship(pooled_output)
-        return seq_relationship_score
+        return self.seq_relationship(pooled_output)
 
 
 class BertPreTrainingHeads(nn.Module):
@@ -1612,10 +1610,7 @@ class BertForSequenceClassification(BertPreTrainedModel):
             exit_lte_logits = torch.zeros((len(self.exit_layers), batch_size, 1), device=device)
 
         for i, exit_layer in enumerate(self.exit_layers):
-            if i == 0:
-                start_idx = 0
-            else:
-                start_idx = self.exit_layers[i - 1] + 1
+            start_idx = 0 if i == 0 else self.exit_layers[i - 1] + 1
             outputs = self.bert(
                 input_ids,
                 attention_mask=attention_mask,
@@ -1647,23 +1642,25 @@ class BertForSequenceClassification(BertPreTrainedModel):
                 exit_lte_logits[i, ...] = exit_strategy_logits
 
             if not self.training:
-                if self.gold_exit_layer is not None:
-                    if exit_layer == self.gold_exit_layer:
-                        # exit_layer_logits = logits.unsqueeze(0)
-                        break
-
-                elif self.exit_strategy(exit_strategy_logits):
+                if (
+                    self.gold_exit_layer is not None
+                    and exit_layer == self.gold_exit_layer
+                    or self.gold_exit_layer is None
+                    and self.exit_strategy(exit_strategy_logits)
+                ):
+                    # exit_layer_logits = logits.unsqueeze(0)
                     break
 
         loss = None
         if labels is not None:
-            if self.config.problem_type is None:
-                if self.num_labels == 1:
+            if self.num_labels == 1:
+                if self.config.problem_type is None:
                     self.config.problem_type = "regression"
-                elif self.num_labels > 1 and (labels.dtype == torch.long or labels.dtype == torch.int):
+            elif self.num_labels > 1 and labels.dtype in [torch.long, torch.int]:
+                if self.config.problem_type is None:
                     self.config.problem_type = "single_label_classification"
-                else:
-                    self.config.problem_type = "multi_label_classification"
+            elif self.config.problem_type is None:
+                self.config.problem_type = "multi_label_classification"
 
             if self.config.problem_type == "regression":
                 loss_fct = MSELoss()

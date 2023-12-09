@@ -79,7 +79,7 @@ def generator():
     input_ids = inputs.input_ids.repeat(bs, 1)
     attention_mask = inputs.attention_mask.repeat(bs, 1)
     token_type_ids = inputs.attention_mask.repeat(bs, 1)
-    print("Masked text: {}".format(text))
+    print(f"Masked text: {text}")
     print("Complete text given by PyTorch model (Top-3): ")
     pt_logits = pt_model(input_ids=input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids)[0]
     ret = get_fill_mask_text(text, tokenizer, inputs, pt_logits)
@@ -105,7 +105,7 @@ def discriminator(text):
     input_ids = inputs.input_ids.repeat(bs, 1)
     attention_mask = inputs.attention_mask.repeat(bs, 1)
     token_type_ids = inputs.attention_mask.repeat(bs, 1)
-    print("Discriminator input text token: {}".format(tokens))
+    print(f"Discriminator input text token: {tokens}")
     print("Discrimination labels given by PyTorch model: ")
     pt_logits = pt_model(input_ids=input_ids)[0]
     get_discrimination_labels(pt_logits)
@@ -119,14 +119,12 @@ def discriminator(text):
     engine_logits = torch.Tensor(list(engine_out.values())[0]).reshape(bs, seq_len)
     get_discrimination_labels((engine_logits))
 
-test_perf = True if args.mode == 'performance' else False
-only_generator = True if args.generator_or_discriminator == "generator" else False
-only_discriminator = True if args.generator_or_discriminator == "discriminator" else False
+test_perf = args.mode == 'performance'
+only_generator = args.generator_or_discriminator == "generator"
+only_discriminator = args.generator_or_discriminator == "discriminator"
 
 if not test_perf:
-    ret_text = args.text
-    if not only_discriminator:
-        ret_text = generator()
+    ret_text = generator() if not only_discriminator else args.text
     if not only_generator:
         discriminator(ret_text)
 else:

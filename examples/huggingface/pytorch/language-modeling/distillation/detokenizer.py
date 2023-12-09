@@ -60,7 +60,7 @@ def wikitext_detokenizer(string):
     string = string.replace("= = = =", "====")
     string = string.replace("= = =", "===")
     string = string.replace("= =", "==")
-    string = string.replace(" " + chr(176) + " ", chr(176))
+    string = string.replace(f" {chr(176)} ", chr(176))
     string = string.replace(" \n", "\n")
     string = string.replace("\n ", "\n")
     string = string.replace(" N ", " 1 ")

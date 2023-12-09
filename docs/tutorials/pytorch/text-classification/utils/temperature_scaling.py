@@ -71,11 +71,11 @@ def set_temperature(model, n_layers, data_iterator=None, cuda_device=0, is_sst=F
     optimizer = Adam_optimizer(10000)
     # First: collect all the logits and labels for the validation set
     if data_iterator is None:
-        print("Reading {}".format(model))
+        print(f"Reading {model}")
         with open(model) as ifh:
             lines = [eval(x.rstrip()) for x in ifh if x[0] == '{']
 
-        print("Read {} lines".format(len(lines)))
+        print(f"Read {len(lines)} lines")
 
         labels = cuda_func(torch.LongTensor([l['label'] for l in lines]))
         logits_list = [l['logits'] for l in lines]
@@ -97,8 +97,6 @@ def set_temperature(model, n_layers, data_iterator=None, cuda_device=0, is_sst=F
                         token_type_ids = None
                     else:
                         token_type_ids = instance['token_type_ids'].unsqueeze(0)
-                    output = model(input_ids=input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids
-                                   , labels=label)
                 else:
                     input_ids = nn_util.move_to_device(torch.tensor(instance['input_ids']).unsqueeze(0), cuda_device)
                     label = nn_util.move_to_device(torch.tensor(instance['label']).unsqueeze(0), cuda_device)
@@ -110,9 +108,8 @@ def set_temperature(model, n_layers, data_iterator=None, cuda_device=0, is_sst=F
                         token_type_ids = nn_util.move_to_device(torch.tensor(instance['token_type_ids']).unsqueeze(0),
                                                                 cuda_device)
 
-                    output = model(input_ids=input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids
-                                   , labels=label)
-
+                output = model(input_ids=input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids
+                               , labels=label)
                 logits = output['logits'].reshape((len(model.exit_layers), 1, model.num_labels))
                 logits_list.append(logits)
                 labels_list.append(label)
@@ -127,7 +124,7 @@ def set_temperature(model, n_layers, data_iterator=None, cuda_device=0, is_sst=F
         all_logits = [cuda_func(torch.cat([x[layer_index] for x in logits_list])) for layer_index in range(n_layers)]
         torch.save([all_logits[0], labels], 'b')
 
-    temps = [1 for i in range(n_layers)]
+    temps = [1 for _ in range(n_layers)]
     # TODO: FINISH THIS ADJUSTMENT
     for layer_index in range(n_layers):
         logits = all_logits[layer_index]
@@ -214,7 +211,7 @@ class Adam_optimizer(Optimizer):
                 best_loss = loss.item()
                 best_epoch = 1
             elif i - best_epoch > 50:
-                print("Stopped at {} with value {}".format(best_epoch, best_loss))
+                print(f"Stopped at {best_epoch} with value {best_loss}")
                 break
 
 
@@ -244,7 +241,7 @@ class Optimizable_optimizer(Optimizer):
                 best_loss = loss.item()
                 best_epoch = 1
             elif i - best_epoch > 50:
-                print("Stopped at {} with value {}".format(best_epoch, best_loss))
+                print(f"Stopped at {best_epoch} with value {best_loss}")
                 break
 
 

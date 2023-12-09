@@ -1,7 +1,7 @@
 import logging
 import os
 import numpy as np
-import nltk 
+import nltk
 from datasets import load_dataset, load_metric
 from intel_extension_for_transformers.transformers import metrics, OptimizedModel
 from intel_extension_for_transformers.transformers.trainer import NLPSeq2SeqTrainer
@@ -57,19 +57,19 @@ tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path, use_fast=True
 if args.data_type == "int8":
     # Load the model obtained after Intel Neural Compressor (INC) quantization
     model = OptimizedModel.from_pretrained(
-          args.model_name_or_path,
-          from_tf=bool(".ckpt" in args.model_name_or_path),
-          config=config,
-          revision="main",
-          use_auth_token=None,
+        args.model_name_or_path,
+        from_tf=".ckpt" in args.model_name_or_path,
+        config=config,
+        revision="main",
+        use_auth_token=None,
     )
 else:
     ## original fp32 model benchmarking
     model = AutoModelForSeq2SeqLM.from_pretrained(
         args.model_name_or_path,
-        from_tf=bool(".ckpt" in args.model_name_or_path),
+        from_tf=".ckpt" in args.model_name_or_path,
         config=config,
-        revision="main"
+        revision="main",
     )
     model.resize_token_embeddings(len(tokenizer))
 
@@ -233,7 +233,7 @@ bert_task_acc_keys = ['eval_loss', 'eval_f1', 'eval_accuracy', 'eval_matthews_co
 
 throughput = results.get("eval_samples_per_second")
 eval_loss = results["eval_loss"]
-print('Batch size = {}'.format(training_args.per_device_eval_batch_size))
-print("Finally Eval eval_loss Accuracy: {}".format(eval_loss))
+print(f'Batch size = {training_args.per_device_eval_batch_size}')
+print(f"Finally Eval eval_loss Accuracy: {eval_loss}")
 print("Latency: {:.3f} ms".format(1000 / throughput))
-print("Throughput: {} samples/sec".format(throughput))
+print(f"Throughput: {throughput} samples/sec")

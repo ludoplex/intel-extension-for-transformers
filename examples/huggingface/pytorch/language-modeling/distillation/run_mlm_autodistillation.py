@@ -304,8 +304,10 @@ def main():
 
     # Log on each process the small summary:
     logger.warning(
-        f"Process rank: {training_args.local_rank}, device: {training_args.device}, n_gpu: {training_args.n_gpu}"
-        + f"\ndistributed training: {bool(training_args.local_rank != -1)}, 16-bits training: {training_args.fp16}"
+        (
+            f"Process rank: {training_args.local_rank}, device: {training_args.device}, n_gpu: {training_args.n_gpu}"
+            + f"\ndistributed training: {training_args.local_rank != -1}, 16-bits training: {training_args.fp16}"
+        )
     )
     # Set the verbosity to info of the Transformers logger (on main process only):
     if is_main_process(training_args.local_rank):
@@ -350,12 +352,12 @@ def main():
             "You are instantiating a new tokenizer from scratch. This is not supported by this script."
             "You can do it from another script, save it, and load it from here, using --tokenizer_name."
         )
-    
+
     model_cls = AutoModelForPreTraining if data_args.data_process_type == 'segment_pair_nsp' else AutoModelForMaskedLM
     if model_args.model_name_or_path:
         model = model_cls.from_pretrained(
             model_args.model_name_or_path,
-            from_tf=bool(".ckpt" in model_args.model_name_or_path),
+            from_tf=".ckpt" in model_args.model_name_or_path,
             config=config,
             cache_dir=model_args.cache_dir,
             revision=model_args.model_revision,
@@ -418,14 +420,14 @@ def main():
                 'teacher model and student model should have same tokenizer.'
         teacher_model = model_cls.from_pretrained(
             optim_args.teacher_model_name_or_path,
-            from_tf=bool(".ckpt" in optim_args.teacher_model_name_or_path),
+            from_tf=".ckpt" in optim_args.teacher_model_name_or_path,
             config=teacher_config,
             cache_dir=model_args.cache_dir,
             revision=model_args.model_revision,
             use_auth_token=True if model_args.use_auth_token else None,
         )
         teacher_model.to(training_args.device)
-        
+
         para_counter = lambda model:sum(p.numel() for p in model.parameters())
         logger.info("***** Number of teacher model parameters: {:.2f}M *****".format(\
                     para_counter(teacher_model)/10**6))

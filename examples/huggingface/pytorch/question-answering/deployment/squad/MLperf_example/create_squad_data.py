@@ -54,15 +54,12 @@ class SquadExample(object):
 
     def __repr__(self):
         s = ""
-        s += "qas_id: %s" % (tokenization.printable_text(self.qas_id))
-        s += ", question_text: %s" % (
-            tokenization.printable_text(self.question_text))
-        s += ", doc_tokens: [%s]" % (" ".join(self.doc_tokens))
+        s += f"qas_id: {tokenization.printable_text(self.qas_id)}"
+        s += f", question_text: {tokenization.printable_text(self.question_text)}"
+        s += f', doc_tokens: [{" ".join(self.doc_tokens)}]'
         if self.start_position:
             s += ", start_position: %d" % (self.start_position)
-        if self.start_position:
             s += ", end_position: %d" % (self.end_position)
-        if self.start_position:
             s += ", is_impossible: %r" % (self.is_impossible)
         return s
 
@@ -101,9 +98,7 @@ def read_squad_examples(input_file, is_training, version_2_with_negative=False):
         input_data = json.load(reader)["data"]
 
     def is_whitespace(c):
-        if c == " " or c == "\t" or c == "\r" or c == "\n" or ord(c) == 0x202F:
-            return True
-        return False
+        return c == " " or c == "\t" or c == "\r" or c == "\n" or ord(c) == 0x202F
 
     examples = []
     for entry in input_data:
@@ -155,9 +150,10 @@ def read_squad_examples(input_file, is_training, version_2_with_negative=False):
                             doc_tokens[start_position:(end_position + 1)])
                         cleaned_answer_text = " ".join(
                             tokenization.whitespace_tokenize(orig_answer_text))
-                        if actual_text.find(cleaned_answer_text) == -1:
-                            print("Warning: Could not find answer: '%s' vs. '%s'" %(
-                                actual_text, cleaned_answer_text))
+                        if cleaned_answer_text not in actual_text:
+                            print(
+                                f"Warning: Could not find answer: '{actual_text}' vs. '{cleaned_answer_text}'"
+                            )
                             continue
                     else:
                         start_position = -1

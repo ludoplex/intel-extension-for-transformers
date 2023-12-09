@@ -255,7 +255,9 @@ def postprocess_qa_predictions(
         predictions = sorted(prelim_predictions, key=lambda x: x["score"], reverse=True)[:n_best_size]
 
         # Add back the minimum null prediction if it was removed because of its low score.
-        if version_2_with_negative and not any(p["offsets"] == (0, 0) for p in predictions):
+        if version_2_with_negative and all(
+            p["offsets"] != (0, 0) for p in predictions
+        ):
             predictions.append(min_null_prediction)
 
         # Use the offsets to gather the answer text in the original context.
@@ -351,19 +353,19 @@ log_level = training_args.get_process_log_level()
 if args.data_type == "int8":
     # Load the model obtained after Intel Neural Compressor (INC) quantization
     model = OptimizedModel.from_pretrained(
-          args.model_name_or_path,
-          from_tf=bool(".ckpt" in args.model_name_or_path),
-          config=config,
-          revision="main",
-          use_auth_token=None,
+        args.model_name_or_path,
+        from_tf=".ckpt" in args.model_name_or_path,
+        config=config,
+        revision="main",
+        use_auth_token=None,
     )
 else:
     ## original fp32 model benchmarking
     model = AutoModelForQuestionAnswering.from_pretrained(
         args.model_name_or_path,
-        from_tf=bool(".ckpt" in args.model_name_or_path),
+        from_tf=".ckpt" in args.model_name_or_path,
         config=config,
-        use_auth_token=None
+        use_auth_token=None,
     )
 
 # Preprocessing is slighlty different for training and evaluation.
@@ -440,7 +442,10 @@ def prepare_train_features(examples):
                 token_end_index -= 1
 
             # Detect if the answer is out of the span (in which case this feature is labeled with the CLS index).
-            if not (offsets[token_start_index][0] <= start_char and offsets[token_end_index][1] >= end_char):
+            if (
+                offsets[token_start_index][0] > start_char
+                or offsets[token_end_index][1] < end_char
+            ):
                 tokenized_examples["start_positions"].append(cls_index)
                 tokenized_examples["end_positions"].append(cls_index)
             else:
@@ -583,7 +588,7 @@ max_eval_samples = 5000
 samples = min(max_eval_samples, len(eval_dataset))
 
 eval_f1_static = results.get("eval_f1")
-print('Batch size = {}'.format(training_args.per_device_eval_batch_size))
-print("Finally Eval eval_f1 Accuracy: {}".format(eval_f1_static))
+print(f'Batch size = {training_args.per_device_eval_batch_size}')
+print(f"Finally Eval eval_f1 Accuracy: {eval_f1_static}")
 print("Latency: {:.3f} ms".format(evalTime / samples * 1000))
-print("Throughput: {} samples/sec".format(samples/evalTime))
+print(f"Throughput: {samples / evalTime} samples/sec")

@@ -46,9 +46,7 @@ def get_label_list(labels):
     unique_labels = set()
     for label in labels:
         unique_labels = unique_labels | set(label)
-    label_list = list(unique_labels)
-    label_list.sort()
-    return label_list
+    return sorted(unique_labels)
 
 # If the labels are of type ClassLabel, they are already integers and we have the map stored somewhere.
 # Otherwise, we have to get the list of labels manually.
@@ -89,20 +87,20 @@ else:
 if args.data_type == "int8":
     # Load the model obtained after Intel Neural Compressor (INC) quantization
     model = OptimizedModel.from_pretrained(
-          args.model_name_or_path,
-          from_tf=bool(".ckpt" in args.model_name_or_path),
-          config=config,
-          revision="main",
-          use_auth_token=None,
+        args.model_name_or_path,
+        from_tf=".ckpt" in args.model_name_or_path,
+        config=config,
+        revision="main",
+        use_auth_token=None,
     )
 else:
     ## original fp32 model benchmarking
     # Load the model obtained after Intel Neural Compressor (INC) quantization
     model = AutoModelForTokenClassification.from_pretrained(
         args.model_name_or_path,
-        from_tf=bool(".ckpt" in args.model_name_or_path),
+        from_tf=".ckpt" in args.model_name_or_path,
         config=config,
-        revision="main"
+        revision="main",
     )
 # Model has labels -> use them.
 if model.config.label2id != PretrainedConfig(num_labels=num_labels).label2id:
@@ -123,7 +121,7 @@ if model.config.label2id != PretrainedConfig(num_labels=num_labels).label2id:
 
 # Set the correspondences label/ID inside the model config
 model.config.label2id = {l: i for i, l in enumerate(label_list)}
-model.config.id2label = {i: l for i, l in enumerate(label_list)}
+model.config.id2label = dict(enumerate(label_list))
 
 # Map that sends B-Xxx label to its I-Xxx counterpart
 b_to_i_label = []
@@ -153,15 +151,10 @@ def tokenize_and_align_labels(examples):
         for word_idx in word_ids:
             # Special tokens have a word id that is None. We set the label to -100 so they are automatically
             # ignored in the loss function.
-            if word_idx is None:
+            if word_idx is None or word_idx == previous_word_idx:
                 label_ids.append(-100)
-            # We set the label for the first token of each word.
-            elif word_idx != previous_word_idx:
-                label_ids.append(label_to_id[label[word_idx]])
-            # For the other tokens in a word, we set the label to either the current label or -100, depending on
-            # the label_all_tokens flag.
             else:
-                label_ids.append(-100)
+                label_ids.append(label_to_id[label[word_idx]])
             previous_word_idx = word_idx
 
         labels.append(label_ids)
@@ -236,7 +229,7 @@ bert_task_acc_keys = ['eval_loss', 'eval_f1', 'eval_accuracy', 'eval_matthews_co
 
 throughput = results.get("eval_samples_per_second")
 eval_loss = results["eval_loss"]
-print('Batch size = {}'.format(training_args.per_device_eval_batch_size))
-print("Finally Eval eval_loss Accuracy: {}".format(eval_loss))
+print(f'Batch size = {training_args.per_device_eval_batch_size}')
+print(f"Finally Eval eval_loss Accuracy: {eval_loss}")
 print("Latency: {:.3f} ms".format(1000 / throughput))
-print("Throughput: {} samples/sec".format(throughput))
+print(f"Throughput: {throughput} samples/sec")

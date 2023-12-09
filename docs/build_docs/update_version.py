@@ -4,7 +4,7 @@ import os, sys
 def main(folder, version):
     folder_name=os.path.basename(folder)
 
-    version_file = "{}/versions.html".format(os.path.dirname(folder))
+    version_file = f"{os.path.dirname(folder)}/versions.html"
     #print(version_file)
     ver_buf = ""
     with open(version_file, "r") as f:
@@ -20,7 +20,7 @@ def main(folder, version):
         f.write(ver_buf)
 
 def help(me):
-    print("python {} html_folder version".format(me))
+    print(f"python {me} html_folder version")
 
 if __name__=="__main__":
     if len(sys.argv)<3:

@@ -48,8 +48,7 @@ def get_args():
                         default=False,
                         type=bool,
                         help="dynamic quantize for fp32 model.")
-    args = parser.parse_args()
-    return args
+    return parser.parse_args()
 
 
 if __name__ == '__main__':

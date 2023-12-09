@@ -181,11 +181,10 @@ class XDropout(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, grad_output):
-        if ctx.scale > 1:
-            (mask,) = ctx.saved_tensors
-            return grad_output.masked_fill(mask, 0) * ctx.scale, None
-        else:
+        if ctx.scale <= 1:
             return grad_output, None
+        (mask,) = ctx.saved_tensors
+        return grad_output.masked_fill(mask, 0) * ctx.scale, None
 
 
 class StableDropout(nn.Module):
@@ -226,15 +225,14 @@ class StableDropout(nn.Module):
             c.scale = scale
 
     def get_context(self):
-        if self.context_stack is not None:
-            if self.count >= len(self.context_stack):
-                self.context_stack.append(DropoutContext())
-            ctx = self.context_stack[self.count]
-            ctx.dropout = self.drop_prob
-            self.count += 1
-            return ctx
-        else:
+        if self.context_stack is None:
             return self.drop_prob
+        if self.count >= len(self.context_stack):
+            self.context_stack.append(DropoutContext())
+        ctx = self.context_stack[self.count]
+        ctx.dropout = self.drop_prob
+        self.count += 1
+        return ctx
 
 
 class DebertaLayerNorm(nn.Module):
@@ -253,8 +251,7 @@ class DebertaLayerNorm(nn.Module):
         variance = (hidden_states - mean).pow(2).mean(-1, keepdim=True)
         hidden_states = (hidden_states - mean) / torch.sqrt(variance + self.variance_epsilon)
         hidden_states = hidden_states.to(input_type)
-        y = self.weight * hidden_states + self.bias
-        return y
+        return self.weight * hidden_states + self.bias
 
 
 class DebertaSelfOutput(nn.Module):
@@ -366,10 +363,7 @@ class DebertaLayer(nn.Module):
             attention_output, att_matrix = attention_output
         intermediate_output = self.intermediate(attention_output)
         layer_output = self.output(intermediate_output, attention_output)
-        if output_attentions:
-            return (layer_output, att_matrix)
-        else:
-            return layer_output
+        return (layer_output, att_matrix) if output_attentions else layer_output
 
 
 class DebertaEncoder(nn.Module):
@@ -506,8 +500,7 @@ def build_relative_position(query_size, key_size, device):
     k_ids = torch.arange(key_size, dtype=torch.long, device=device)
     rel_pos_ids = q_ids[:, None] - k_ids.view(1, -1).repeat(query_size, 1)
     rel_pos_ids = rel_pos_ids[:query_size, :]
-    rel_pos_ids = rel_pos_ids.unsqueeze(0)
-    return rel_pos_ids
+    return rel_pos_ids.unsqueeze(0)
 
 
 @torch.jit.script
@@ -662,10 +655,7 @@ class DisentangledSelfAttention(nn.Module):
         context_layer = context_layer.permute(0, 2, 1, 3).contiguous()
         new_context_layer_shape = context_layer.size()[:-2] + (-1,)
         context_layer = context_layer.view(new_context_layer_shape)
-        if output_attentions:
-            return (context_layer, attention_probs)
-        else:
-            return context_layer
+        return (context_layer, attention_probs) if output_attentions else context_layer
 
     def disentangled_att_bias(self, query_layer, key_layer, relative_pos, rel_embeddings, scale_factor):
         if relative_pos is None:
@@ -752,9 +742,9 @@ class DebertaEmbeddings(nn.Module):
         else:
             input_shape = inputs_embeds.size()[:-1]
 
-        seq_length = input_shape[1]
-
         if position_ids is None:
+            seq_length = input_shape[1]
+
             position_ids = self.position_ids[:, :seq_length]
 
         if token_type_ids is None:
@@ -1131,8 +1121,7 @@ class DebertaOnlyMLMHead(nn.Module):
         self.predictions = DebertaLMPredictionHead(config)
 
     def forward(self, sequence_output):
-        prediction_scores = self.predictions(sequence_output)
-        return prediction_scores
+        return self.predictions(sequence_output)
 
 
 @add_start_docstrings(
@@ -1258,11 +1247,7 @@ class DebertaForSequenceClassification(DebertaPreTrainedModel):
             exit_lte_logits = torch.zeros((len(self.exit_layers), batch_size, 1), device=device)
 
         for i, exit_layer in enumerate(self.exit_layers):
-            if i == 0:
-                start_idx = 0
-            else:
-                start_idx = self.exit_layers[i - 1] + 1
-
+            start_idx = 0 if i == 0 else self.exit_layers[i - 1] + 1
             outputs = self.deberta(
                 input_ids,
                 token_type_ids=token_type_ids,
@@ -1295,23 +1280,25 @@ class DebertaForSequenceClassification(DebertaPreTrainedModel):
             # early exit strategy
             if not self.training:
                 assert (logits.shape[0] == 1)  # make sure we are running inference with batch of size 1
-                if self.gold_exit_layer is not None:
-                    if exit_layer == self.gold_exit_layer:
-                        # exit_layer_logits = logits.unsqueeze(0)
-                        break
-
-                elif self.exit_strategy(exit_strategy_logits):
+                if (
+                    self.gold_exit_layer is not None
+                    and exit_layer == self.gold_exit_layer
+                    or self.gold_exit_layer is None
+                    and self.exit_strategy(exit_strategy_logits)
+                ):
+                    # exit_layer_logits = logits.unsqueeze(0)
                     break
 
         loss = None
         if labels is not None:
-            if self.config.problem_type is None:
-                if self.num_labels == 1:
+            if self.num_labels == 1:
+                if self.config.problem_type is None:
                     self.config.problem_type = "regression"
-                elif self.num_labels > 1 and (labels.dtype == torch.long or labels.dtype == torch.int):
+            elif self.num_labels > 1 and labels.dtype in [torch.long, torch.int]:
+                if self.config.problem_type is None:
                     self.config.problem_type = "single_label_classification"
-                else:
-                    self.config.problem_type = "multi_label_classification"
+            elif self.config.problem_type is None:
+                self.config.problem_type = "multi_label_classification"
 
             if self.config.problem_type == "regression":
                 loss_fct = MSELoss()

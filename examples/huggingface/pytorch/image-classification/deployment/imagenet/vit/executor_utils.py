@@ -69,7 +69,7 @@ class ProgressMeter(object):
     def _get_batch_fmtstr(self, num_batches):
         num_digits = len(str(num_batches // 1))
         fmt = '{:' + str(num_digits) + 'd}'
-        return '[' + fmt + '/' + fmt.format(num_batches) + ']'
+        return f'[{fmt}/{fmt.format(num_batches)}]'
 
 
 def accuracy(output, target, topk=(1,)):
@@ -173,7 +173,7 @@ class Neural_Engine(Neural_Engine_base):
             duration_w = duration[warm_up:]
             all_latency = log_file.replace('.log', '.npy')
             _, file_name = os.path.split(all_latency)
-            _ = os.getcwd() + '/all_latency'
+            _ = f'{os.getcwd()}/all_latency'
             try:
                 if os.path.exists(_) == False:
                     os.mkdir(_)
